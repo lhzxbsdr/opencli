@@ -55,7 +55,7 @@ opencli bilibili hot -v   # 查看已有命令的 pipeline 每步数据流
 
 在开始死磕复杂的抓包拦截之前，按照以下优先级进行尝试：
 
-1. **后缀爆破法 (`.json`)**: 像 Reddit 这样复杂的网站，只要在其 URL 后加上 `.json`（例如 `/r/all.json`），就能在带 Cookie 的情况下直接利用 `fetch` 拿到极其干净的 REST 数据（Tier 2 Cookie 策略极速秒杀）。
+1. **后缀爆破法 (`.json`)**: 像 Reddit 这样复杂的网站，只要在其 URL 后加上 `.json`（例如 `/r/all.json`），就能在带 Cookie 的情况下直接利用 `fetch` 拿到极其干净的 REST 数据（Tier 2 Cookie 策略极速秒杀）。另外如功能完备的**雪球 (xueqiu)** 也可以走这种纯 API 的方式极简获取，成为你构建简单 YAML 的黄金标杆。
 2. **全局状态查找法 (`__INITIAL_STATE__`)**: 许多服务端渲染 (SSR) 的网站（如小红书、Bilibili）会将首页或详情页的完整数据挂载到全局 window 对象上。与其去拦截网络请求，不如直接 `page.evaluate('() => window.__INITIAL_STATE__')` 获取整个数据树。
 3. **框架探测与 Store Action 截断**: 如果站点使用 Vue + Pinia，可以使用 `tap` 步骤调用 action，让前端框架代替你完成复杂的鉴权签名封装。
 4. **底层 XHR/Fetch 拦截**: 最后手段，当上述都不行时，使用 TypeScript 适配器进行无侵入式的请求抓取。
@@ -532,6 +532,10 @@ git add src/clis/mysite/
 git commit -m "feat(mysite): add hot and search adapters"
 git push
 ```
+
+## 设计哲学: Zero-Dependency jq
+
+> 💡 **架构理念升级**: OpenCLI 的原生机制本质上内建了一个 **Zero-Dependency jq 数据处理流**。使用时不需要依赖系统命令级别的 `jq` 包，而是将所有的解析拍平动作放在 `evaluate` 块内的原生 JavaScript 里，再由外层 YAML 通过 `select`、`map` 等命令提取。这将彻底消灭跨操作系统下产生的第三方二进制库依赖。
 
 ---
 

@@ -3,7 +3,7 @@ name: opencli
 description: "OpenCLI — Make any website your CLI. Zero risk, AI-powered, reuse Chrome login."
 version: 0.1.0
 author: jackwener
-tags: [cli, browser, web, mcp, playwright, bilibili, zhihu, twitter, github, v2ex, hackernews, reddit, xiaohongshu, AI, agent]
+tags: [cli, browser, web, mcp, playwright, bilibili, zhihu, twitter, github, v2ex, hackernews, reddit, xiaohongshu, xueqiu, AI, agent]
 ---
 
 # OpenCLI
@@ -60,12 +60,19 @@ opencli xiaohongshu search --keyword "美食"  # 搜索笔记
 opencli xiaohongshu notifications             # 通知（mentions/likes/connections）
 opencli xiaohongshu feed --limit 10           # 推荐 Feed
 
+# 雪球 Xueqiu (browser)
+opencli xueqiu hot-stock --limit 10      # 雪球热门股票榜
+opencli xueqiu stock --symbol SH600519   # 查看股票实时行情
+opencli xueqiu watchlist                 # 获取自选股/持仓列表
+opencli xueqiu feed                      # 我的关注 timeline
+
 # GitHub (trending=browser, search=public)
 opencli github trending --limit 10       # GitHub Trending
 opencli github search --keyword "cli"    # 搜索仓库
 
 # Twitter/X (browser)
 opencli twitter trending --limit 10      # 热门话题
+opencli twitter bookmarks --limit 20     # 获取收藏的书签推文
 
 # Reddit (browser)
 opencli reddit hot --limit 10            # 热门帖子

@@ -11,7 +11,7 @@ OpenCLI 通过 Chrome 浏览器 + [Playwright MCP Bridge](https://github.com/nic
 
 ## ✨ 亮点
 
-- 🌐 **28+ 命令，16 个站点** — B站、知乎、小红书、Twitter、Reddit、GitHub、V2EX、Hacker News、BBC、微博、BOSS直聘、Yahoo Finance、路透社、什么值得买、携程、YouTube
+- 🌐 **35+ 命令，17 个站点** — B站、知乎、小红书、Twitter、Reddit、雪球(xueqiu)、GitHub、V2EX、Hacker News、BBC、微博、BOSS直聘、Yahoo Finance、路透社、什么值得买、携程、YouTube
 - 🔐 **零风控** — 复用 Chrome 登录态，无需存储任何凭证
 - 🤖 **AI 原生** — `explore` 自动发现 API，`synthesize` 生成适配器，`cascade` 探测认证策略
 - 🚀 **动态加载引擎** — 只需将 `.ts` 或 `.yaml` 适配器放入 `clis/` 文件夹即可自动注册生效
@@ -86,7 +86,8 @@ npm install -g @jackwener/opencli@latest
 | **bilibili** | `hot` `search` `me` `favorite` `history` `feed` `user-videos` | 🔐 浏览器 |
 | **zhihu** | `hot` `search` `question` | 🔐 浏览器 |
 | **xiaohongshu** | `search` `notifications` `feed` | 🔐 浏览器 |
-| **twitter** | `trending` | 🔐 浏览器 |
+| **xueqiu** | `feed` `hot-stock` `hot` `search` `stock` `watchlist` | 🔐 浏览器 |
+| **twitter** | `trending` `bookmarks` | 🔐 浏览器 |
 | **reddit** | `hot` | 🔐 浏览器 |
 | **weibo** | `hot` | 🔐 浏览器 |
 | **boss** | `search` | 🔐 浏览器 |

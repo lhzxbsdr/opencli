@@ -7,7 +7,7 @@
 
 [![npm](https://img.shields.io/npm/v/@jackwener/opencli)](https://www.npmjs.com/package/@jackwener/opencli)
 
-A CLI tool that turns **any website** into a command-line interface. **28+ commands** across **16 sites** — bilibili, zhihu, xiaohongshu, twitter, reddit, github, v2ex, hackernews, bbc, weibo, boss, yahoo-finance, reuters, smzdm, ctrip, youtube — powered by browser session reuse and AI-native discovery.
+A CLI tool that turns **any website** into a command-line interface. **35+ commands** across **17 sites** — bilibili, zhihu, xiaohongshu, twitter, reddit, xueqiu, github, v2ex, hackernews, bbc, weibo, boss, yahoo-finance, reuters, smzdm, ctrip, youtube — powered by browser session reuse and AI-native discovery.
 
 ## ✨ Highlights
 
@@ -85,7 +85,8 @@ Public API commands (`hackernews`, `github search`, `v2ex`) need no browser at a
 | **bilibili** | `hot` `search` `me` `favorite` `history` `feed` `user-videos` | 🔐 Browser |
 | **zhihu** | `hot` `search` `question` | 🔐 Browser |
 | **xiaohongshu** | `search` `notifications` `feed` | 🔐 Browser |
-| **twitter** | `trending` | 🔐 Browser |
+| **xueqiu** | `feed` `hot-stock` `hot` `search` `stock` `watchlist` | 🔐 Browser |
+| **twitter** | `trending` `bookmarks` | 🔐 Browser |
 | **reddit** | `hot` | 🔐 Browser |
 | **weibo** | `hot` | 🔐 Browser |
 | **boss** | `search` | 🔐 Browser |
