@@ -111,8 +111,9 @@ export async function runSetup(opts: { cliVersion?: string; token?: string } = {
   }
 
   // Step 4: Show interactive checkbox
+  console.clear();
   const selected = await checkboxPrompt(items, {
-    title: `  Select files to update with token ${chalk.cyan(fingerprint)}:`,
+    title: `  ${chalk.bold('opencli setup')} — token ${chalk.cyan(fingerprint)}`,
   });
 
   if (selected.length === 0) {
