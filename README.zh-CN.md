@@ -131,6 +131,25 @@ opencli list  # 可以在任何地方使用了！
 npm install -g @jackwener/opencli@latest
 ```
 
+### 命令自动补全
+
+OpenCLI 支持 `zsh`、`bash` 和 `fish` 的命令自动补全参数与提示。
+
+对于 `zsh` (添加至 `~/.zshrc`):
+```bash
+eval "$(opencli completion zsh)"
+```
+
+对于 `bash` (添加至 `~/.bashrc`):
+```bash
+eval "$(opencli completion bash)"
+```
+
+对于 `fish` (添加至 `~/.config/fish/config.fish`):
+```fish
+opencli completion fish | source
+```
+
 ## 内置命令
 
 **19 个站点 · 80+ 命令** — 运行 `opencli list` 查看完整注册表。

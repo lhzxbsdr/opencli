@@ -132,6 +132,25 @@ opencli list  # Now you can use it anywhere!
 npm install -g @jackwener/opencli@latest
 ```
 
+### Auto-Completion
+
+OpenCLI supports command auto-completion for `zsh`, `bash`, and `fish`.
+
+For `zsh` (add to your `~/.zshrc`):
+```bash
+eval "$(opencli completion zsh)"
+```
+
+For `bash` (add to your `~/.bashrc`):
+```bash
+eval "$(opencli completion bash)"
+```
+
+For `fish` (add to your `~/.config/fish/config.fish`):
+```fish
+opencli completion fish | source
+```
+
 ## Built-in Commands
 
 **19 sites · 80+ commands** — run `opencli list` for the live registry.
