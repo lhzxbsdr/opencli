@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { PlaywrightMCP, __test__ } from './browser/index.js';
+import { BrowserBridge, __test__ } from './browser/index.js';
 
 describe('browser helpers', () => {
   it('extracts tab entries from string snapshots', () => {
@@ -45,9 +45,9 @@ describe('browser helpers', () => {
   });
 });
 
-describe('PlaywrightMCP state', () => {
+describe('BrowserBridge state', () => {
   it('transitions to closed after close()', async () => {
-    const mcp = new PlaywrightMCP();
+    const mcp = new BrowserBridge();
 
     expect(mcp.state).toBe('idle');
 
@@ -57,21 +57,21 @@ describe('PlaywrightMCP state', () => {
   });
 
   it('rejects connect() after the session has been closed', async () => {
-    const mcp = new PlaywrightMCP();
+    const mcp = new BrowserBridge();
     await mcp.close();
 
     await expect(mcp.connect()).rejects.toThrow('Session is closed');
   });
 
   it('rejects connect() while already connecting', async () => {
-    const mcp = new PlaywrightMCP();
+    const mcp = new BrowserBridge();
     (mcp as any)._state = 'connecting';
 
     await expect(mcp.connect()).rejects.toThrow('Already connecting');
   });
 
   it('rejects connect() while closing', async () => {
-    const mcp = new PlaywrightMCP();
+    const mcp = new BrowserBridge();
     (mcp as any)._state = 'closing';
 
     await expect(mcp.connect()).rejects.toThrow('Session is closing');

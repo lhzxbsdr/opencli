@@ -7,7 +7,7 @@
 
 import chalk from 'chalk';
 import { checkDaemonStatus } from './browser/discover.js';
-import { PlaywrightMCP } from './browser/index.js';
+import { BrowserBridge } from './browser/index.js';
 import { browserSession } from './runtime.js';
 
 export type DoctorOptions = {
@@ -37,7 +37,7 @@ export type DoctorReport = {
 export async function checkConnectivity(opts?: { timeout?: number }): Promise<ConnectivityResult> {
   const start = Date.now();
   try {
-    const mcp = new PlaywrightMCP();
+    const mcp = new BrowserBridge();
     const page = await mcp.connect({ timeout: opts?.timeout ?? 8 });
     // Try a simple eval to verify end-to-end connectivity
     await page.evaluate('1 + 1');
@@ -116,20 +116,3 @@ export function renderBrowserDoctorReport(report: DoctorReport): string {
   return lines.join('\n');
 }
 
-// Backward compatibility exports (no-ops for things that no longer exist)
-export const PLAYWRIGHT_TOKEN_ENV = 'PLAYWRIGHT_MCP_EXTENSION_TOKEN';
-export function discoverExtensionToken(): string | null { return null; }
-export function checkExtensionInstalled(): { installed: boolean; browsers: string[] } { return { installed: false, browsers: [] }; }
-export function applyBrowserDoctorFix(): Promise<string[]> { return Promise.resolve([]); }
-export function getDefaultShellRcPath(): string { return ''; }
-export function getDefaultMcpConfigPaths(): string[] { return []; }
-export function readTokenFromShellContent(_content: string): string | null { return null; }
-export function upsertShellToken(content: string): string { return content; }
-export function upsertJsonConfigToken(content: string): string { return content; }
-export function readTomlConfigToken(_content: string): string | null { return null; }
-export function upsertTomlConfigToken(content: string): string { return content; }
-export function shortenPath(p: string): string { return p; }
-export function toolName(_p: string): string { return ''; }
-export function fileExists(filePath: string): boolean { try { return require('node:fs').existsSync(filePath); } catch { return false; } }
-export function writeFileWithMkdir(_p: string, _c: string): void {}
-export async function checkTokenConnectivity(opts?: { timeout?: number }): Promise<ConnectivityResult> { return checkConnectivity(opts); }

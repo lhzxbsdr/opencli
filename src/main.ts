@@ -11,7 +11,7 @@ import chalk from 'chalk';
 import { discoverClis, executeCommand } from './engine.js';
 import { Strategy, type CliCommand, fullName, getRegistry, strategyLabel } from './registry.js';
 import { render as renderOutput } from './output.js';
-import { PlaywrightMCP } from './browser/index.js';
+import { BrowserBridge } from './browser/index.js';
 import { browserSession, DEFAULT_BROWSER_COMMAND_TIMEOUT, runWithTimeout } from './runtime.js';
 import { PKG_VERSION } from './version.js';
 import { getCompletions, printCompletionScript } from './completion.js';
@@ -99,18 +99,18 @@ program.command('verify').description('Validate + smoke test').argument('[target
   });
 
 program.command('explore').alias('probe').description('Explore a website: discover APIs, stores, and recommend strategies').argument('<url>').option('--site <name>').option('--goal <text>').option('--wait <s>', '', '3').option('--auto', 'Enable interactive fuzzing (simulate clicks to trigger lazy APIs)').option('--click <labels>', 'Comma-separated labels to click before fuzzing (e.g. "字幕,CC,评论")')
-  .action(async (url, opts) => { const { exploreUrl, renderExploreSummary } = await import('./explore.js'); const clickLabels = opts.click ? opts.click.split(',').map((s: string) => s.trim()) : undefined; console.log(renderExploreSummary(await exploreUrl(url, { BrowserFactory: PlaywrightMCP, site: opts.site, goal: opts.goal, waitSeconds: parseFloat(opts.wait), auto: opts.auto, clickLabels }))); });
+  .action(async (url, opts) => { const { exploreUrl, renderExploreSummary } = await import('./explore.js'); const clickLabels = opts.click ? opts.click.split(',').map((s: string) => s.trim()) : undefined; console.log(renderExploreSummary(await exploreUrl(url, { BrowserFactory: BrowserBridge, site: opts.site, goal: opts.goal, waitSeconds: parseFloat(opts.wait), auto: opts.auto, clickLabels }))); });
 
 program.command('synthesize').description('Synthesize CLIs from explore').argument('<target>').option('--top <n>', '', '3')
   .action(async (target, opts) => { const { synthesizeFromExplore, renderSynthesizeSummary } = await import('./synthesize.js'); console.log(renderSynthesizeSummary(synthesizeFromExplore(target, { top: parseInt(opts.top) }))); });
 
 program.command('generate').description('One-shot: explore → synthesize → register').argument('<url>').option('--goal <text>').option('--site <name>')
-  .action(async (url, opts) => { const { generateCliFromUrl, renderGenerateSummary } = await import('./generate.js'); const r = await generateCliFromUrl({ url, BrowserFactory: PlaywrightMCP, builtinClis: BUILTIN_CLIS, userClis: USER_CLIS, goal: opts.goal, site: opts.site }); console.log(renderGenerateSummary(r)); process.exitCode = r.ok ? 0 : 1; });
+  .action(async (url, opts) => { const { generateCliFromUrl, renderGenerateSummary } = await import('./generate.js'); const r = await generateCliFromUrl({ url, BrowserFactory: BrowserBridge, builtinClis: BUILTIN_CLIS, userClis: USER_CLIS, goal: opts.goal, site: opts.site }); console.log(renderGenerateSummary(r)); process.exitCode = r.ok ? 0 : 1; });
 
 program.command('cascade').description('Strategy cascade: find simplest working strategy').argument('<url>').option('--site <name>')
   .action(async (url, opts) => {
     const { cascadeProbe, renderCascadeResult } = await import('./cascade.js');
-    const result = await browserSession(PlaywrightMCP, async (page) => {
+    const result = await browserSession(BrowserBridge, async (page) => {
       // Navigate to the site first for cookie context
       try { const siteUrl = new URL(url); await page.goto(`${siteUrl.protocol}//${siteUrl.host}`); await page.wait(2); } catch {}
       return cascadeProbe(page, url);
@@ -192,7 +192,7 @@ for (const [, cmd] of registry) {
       if (actionOpts.verbose) process.env.OPENCLI_VERBOSE = '1';
       let result: any;
       if (cmd.browser) {
-        result = await browserSession(PlaywrightMCP, async (page) => {
+        result = await browserSession(BrowserBridge, async (page) => {
           // Cookie/header strategies require same-origin context for credentialed fetch.
           // In CDP mode the active tab may be on an unrelated domain, causing CORS failures.
           // Navigate to the command's domain first (mirrors cascade command behavior).

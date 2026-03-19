@@ -10,9 +10,6 @@
     "activeTab",
     "alarms"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
   "background": {
     "service_worker": "dist/background.js",
     "type": "module"
