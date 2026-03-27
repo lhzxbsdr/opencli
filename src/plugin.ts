@@ -166,6 +166,15 @@ function cloneRepoToTemp(cloneUrl: string): string {
   return tmpCloneDir;
 }
 
+function withTempClone<T>(cloneUrl: string, work: (cloneDir: string) => T): T {
+  const tmpCloneDir = cloneRepoToTemp(cloneUrl);
+  try {
+    return work(tmpCloneDir);
+  } finally {
+    try { fs.rmSync(tmpCloneDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
 function resolveRemotePluginSource(lockEntry: LockEntry | undefined, dir: string): string {
   const source = resolveStoredPluginSource(lockEntry, dir);
   if (!source || isLocalPluginSource(source)) {
@@ -197,6 +206,44 @@ function removePathSync(p: string): void {
 interface TransactionHandle {
   finalize(): void;
   rollback(): void;
+}
+
+class Transaction {
+  #handles: TransactionHandle[] = [];
+  #settled = false;
+
+  track<T extends TransactionHandle>(handle: T): T {
+    this.#handles.push(handle);
+    return handle;
+  }
+
+  commit(): void {
+    if (this.#settled) return;
+    this.#settled = true;
+    for (const handle of this.#handles) {
+      handle.finalize();
+    }
+  }
+
+  rollback(): void {
+    if (this.#settled) return;
+    this.#settled = true;
+    for (const handle of [...this.#handles].reverse()) {
+      handle.rollback();
+    }
+  }
+}
+
+function runTransaction<T>(work: (tx: Transaction) => T): T {
+  const tx = new Transaction();
+  try {
+    const result = work(tx);
+    tx.commit();
+    return result;
+  } catch (err) {
+    tx.rollback();
+    throw err;
+  }
 }
 
 function beginReplaceDir(
@@ -446,10 +493,7 @@ export function installPlugin(source: string): string | string[] {
     return installLocalPlugin(parsed.localPath!, repoName);
   }
 
-  // Clone to a temporary location first so we can inspect the manifest.
-  const tmpCloneDir = cloneRepoToTemp(parsed.cloneUrl!);
-
-  try {
+  return withTempClone(parsed.cloneUrl!, (tmpCloneDir) => {
     const manifest = readPluginManifest(tmpCloneDir);
 
     // Check top-level compatibility
@@ -465,10 +509,7 @@ export function installPlugin(source: string): string | string[] {
 
     // Single plugin mode
     return installSinglePlugin(tmpCloneDir, parsed.cloneUrl!, repoName, manifest);
-  } finally {
-    // Clean up temp clone (may already have been moved)
-    try { fs.rmSync(tmpCloneDir, { recursive: true, force: true }); } catch {}
-  }
+  });
 }
 
 /** Install a single (non-monorepo) plugin. */
@@ -491,18 +532,20 @@ function installSinglePlugin(
   }
 
   postInstallLifecycle(cloneDir);
-  promoteDir(cloneDir, targetDir);
-
-  const commitHash = getCommitHash(targetDir);
-  if (commitHash) {
+  runTransaction((tx) => {
+    tx.track(beginReplaceDir(cloneDir, targetDir));
     const lock = readLockFile();
-    lock[pluginName] = {
-      source: cloneUrl,
-      commitHash,
-      installedAt: new Date().toISOString(),
-    };
-    writeLockFile(lock);
-  }
+    const commitHash = getCommitHash(targetDir);
+
+    if (commitHash) {
+      lock[pluginName] = {
+        source: cloneUrl,
+        commitHash,
+        installedAt: new Date().toISOString(),
+      };
+      writeLockFile(lock);
+    }
+  });
 
   return pluginName;
 }
@@ -664,33 +707,37 @@ function installMonorepo(
     postInstallMonorepoLifecycle(repoDir, eligiblePlugins.map((p) => path.join(repoDir, p.entry.path)));
   } else {
     postInstallMonorepoLifecycle(cloneDir, eligiblePlugins.map((p) => path.join(cloneDir, p.entry.path)));
-    fs.mkdirSync(monoreposDir, { recursive: true });
-    promoteDir(cloneDir, repoDir);
   }
 
-  const commitHash = getCommitHash(repoDir);
-
-  for (const { name, entry } of eligiblePlugins) {
-    const linkPath = path.join(PLUGINS_DIR, name);
-    const subDir = path.join(repoDir, entry.path);
-
-    // Create symlink (junction on Windows)
-    const linkType = isWindows ? 'junction' : 'dir';
-    fs.symlinkSync(subDir, linkPath, linkType);
-
-    if (commitHash) {
-      lock[name] = {
-        source: cloneUrl,
-        commitHash,
-        installedAt: new Date().toISOString(),
-        monorepo: { name: repoName, subPath: entry.path },
-      };
+  runTransaction((tx) => {
+    if (!repoAlreadyInstalled) {
+      fs.mkdirSync(monoreposDir, { recursive: true });
+      tx.track(beginReplaceDir(cloneDir, repoDir));
     }
 
-    installedNames.push(name);
-  }
+    const commitHash = getCommitHash(repoDir);
 
-  writeLockFile(lock);
+    for (const { name, entry } of eligiblePlugins) {
+      const linkPath = path.join(PLUGINS_DIR, name);
+      const subDir = path.join(repoDir, entry.path);
+
+      tx.track(beginReplaceSymlink(subDir, linkPath));
+
+      if (commitHash) {
+        lock[name] = {
+          source: cloneUrl,
+          commitHash,
+          installedAt: new Date().toISOString(),
+          monorepo: { name: repoName, subPath: entry.path },
+        };
+      }
+
+      installedNames.push(name);
+    }
+
+    writeLockFile(lock);
+  });
+
   return installedNames;
 }
 
@@ -768,9 +815,7 @@ export function updatePlugin(name: string): void {
     const monoDir = path.join(getMonoreposDir(), lockEntry.monorepo.name);
     const monoName = lockEntry.monorepo.name;
     const cloneUrl = resolveRemotePluginSource(lockEntry, monoDir);
-    const tmpCloneDir = cloneRepoToTemp(cloneUrl);
-
-    try {
+    withTempClone(cloneUrl, (tmpCloneDir) => {
       const manifest = readPluginManifest(tmpCloneDir);
       if (!manifest || !isMonorepo(manifest)) {
         throw new Error(`Updated source is no longer a monorepo: ${cloneUrl}`);
@@ -809,15 +854,13 @@ export function updatePlugin(name: string): void {
         postInstallMonorepoLifecycle(tmpCloneDir, updatedPlugins.map((plugin) => path.join(tmpCloneDir, plugin.manifestEntry.path)));
       }
 
-      const repoReplacement = beginReplaceDir(tmpCloneDir, monoDir);
-      const linkReplacements: TransactionHandle[] = [];
-
-      try {
+      runTransaction((tx) => {
+        tx.track(beginReplaceDir(tmpCloneDir, monoDir));
         const commitHash = getCommitHash(monoDir);
         for (const plugin of updatedPlugins) {
           const linkPath = path.join(PLUGINS_DIR, plugin.name);
           const subDir = path.join(monoDir, plugin.manifestEntry.path);
-          linkReplacements.push(beginReplaceSymlink(subDir, linkPath));
+          tx.track(beginReplaceSymlink(subDir, linkPath));
 
           if (commitHash) {
             lock[plugin.name] = {
@@ -830,27 +873,13 @@ export function updatePlugin(name: string): void {
           }
         }
         writeLockFile(lock);
-        for (const replacement of linkReplacements) {
-          replacement.finalize();
-        }
-        repoReplacement.finalize();
-      } catch (err) {
-        for (const replacement of linkReplacements.reverse()) {
-          replacement.rollback();
-        }
-        repoReplacement.rollback();
-        throw err;
-      }
-    } finally {
-      try { fs.rmSync(tmpCloneDir, { recursive: true, force: true }); } catch {}
-    }
+      });
+    });
     return;
   }
 
   const cloneUrl = resolveRemotePluginSource(lockEntry, targetDir);
-  const tmpCloneDir = cloneRepoToTemp(cloneUrl);
-
-  try {
+  withTempClone(cloneUrl, (tmpCloneDir) => {
     const manifest = readPluginManifest(tmpCloneDir);
     if (manifest && isMonorepo(manifest)) {
       throw new Error(`Updated source is now a monorepo: ${cloneUrl}`);
@@ -868,9 +897,8 @@ export function updatePlugin(name: string): void {
     }
 
     postInstallLifecycle(tmpCloneDir);
-    const replacement = beginReplaceDir(tmpCloneDir, targetDir);
-
-    try {
+    runTransaction((tx) => {
+      tx.track(beginReplaceDir(tmpCloneDir, targetDir));
       const commitHash = getCommitHash(targetDir);
       if (commitHash) {
         const existing = lock[name];
@@ -882,14 +910,8 @@ export function updatePlugin(name: string): void {
         };
         writeLockFile(lock);
       }
-      replacement.finalize();
-    } catch (err) {
-      replacement.rollback();
-      throw err;
-    }
-  } finally {
-    try { fs.rmSync(tmpCloneDir, { recursive: true, force: true }); } catch {}
-  }
+    });
+  });
 }
 
 export interface UpdateResult {
