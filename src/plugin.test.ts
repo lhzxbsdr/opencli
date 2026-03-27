@@ -38,7 +38,9 @@ const {
   _installLocalPlugin,
   _isLocalPluginSource,
   _moveDir,
+  _resolvePluginSource,
   _resolveStoredPluginSource,
+  _toStoredPluginSource,
   _toLocalPluginSource,
 } = pluginModule;
 
@@ -837,6 +839,11 @@ describe('plugin source helpers', () => {
     expect(_toLocalPluginSource(dir)).toBe(`local:${path.resolve(dir)}`);
   });
 
+  it('serializes structured local sources consistently', () => {
+    const dir = path.join(os.tmpdir(), 'opencli-plugin-source');
+    expect(_toStoredPluginSource({ kind: 'local', path: dir })).toBe(`local:${path.resolve(dir)}`);
+  });
+
   it('prefers lockfile source over git remote lookup', () => {
     const dir = path.join(os.tmpdir(), 'opencli-plugin-source');
     const source = _resolveStoredPluginSource({
@@ -845,6 +852,22 @@ describe('plugin source helpers', () => {
       installedAt: '2025-01-01T00:00:00.000Z',
     }, dir);
     expect(source).toBe('local:/tmp/plugin');
+  });
+
+  it('normalizes monorepo lock entries into structured sources', () => {
+    const dir = path.join(os.tmpdir(), 'opencli-plugin-source');
+    const source = _resolvePluginSource({
+      source: 'https://github.com/user/opencli-plugins.git',
+      commitHash: 'abcdef1234567890abcdef1234567890abcdef12',
+      installedAt: '2025-01-01T00:00:00.000Z',
+      monorepo: { name: 'opencli-plugins', subPath: 'packages/alpha' },
+    }, dir);
+    expect(source).toEqual({
+      kind: 'monorepo',
+      url: 'https://github.com/user/opencli-plugins.git',
+      repoName: 'opencli-plugins',
+      subPath: 'packages/alpha',
+    });
   });
 });
 

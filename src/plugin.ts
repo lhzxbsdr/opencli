@@ -76,16 +76,55 @@ interface ParsedSource {
   localPath?: string;
 }
 
+type PluginSourceRecord =
+  | { kind: 'git'; url: string }
+  | { kind: 'local'; path: string }
+  | { kind: 'monorepo'; url: string; repoName: string; subPath: string };
+
+function parseStoredPluginSource(source?: string): PluginSourceRecord | undefined {
+  if (!source) return undefined;
+  if (source.startsWith(LOCAL_PLUGIN_SOURCE_PREFIX)) {
+    return {
+      kind: 'local',
+      path: path.resolve(source.slice(LOCAL_PLUGIN_SOURCE_PREFIX.length)),
+    };
+  }
+  return { kind: 'git', url: source };
+}
+
 function isLocalPluginSource(source?: string): boolean {
-  return typeof source === 'string' && source.startsWith(LOCAL_PLUGIN_SOURCE_PREFIX);
+  return parseStoredPluginSource(source)?.kind === 'local';
+}
+
+function toStoredPluginSource(source: PluginSourceRecord): string {
+  if (source.kind === 'local') {
+    return `${LOCAL_PLUGIN_SOURCE_PREFIX}${path.resolve(source.path)}`;
+  }
+  return source.url;
 }
 
 function toLocalPluginSource(pluginDir: string): string {
-  return `${LOCAL_PLUGIN_SOURCE_PREFIX}${path.resolve(pluginDir)}`;
+  return toStoredPluginSource({ kind: 'local', path: pluginDir });
+}
+
+function resolvePluginSource(lockEntry: LockEntry | undefined, pluginDir: string): PluginSourceRecord | undefined {
+  const rawSource = lockEntry?.source ?? getPluginSource(pluginDir);
+  const parsed = parseStoredPluginSource(rawSource);
+  if (!parsed) return undefined;
+  if (parsed.kind === 'git' && lockEntry?.monorepo) {
+    return {
+      kind: 'monorepo',
+      url: parsed.url,
+      repoName: lockEntry.monorepo.name,
+      subPath: lockEntry.monorepo.subPath,
+    };
+  }
+  return parsed;
 }
 
 function resolveStoredPluginSource(lockEntry: LockEntry | undefined, pluginDir: string): string | undefined {
-  return lockEntry?.source ?? getPluginSource(pluginDir);
+  const source = resolvePluginSource(lockEntry, pluginDir);
+  return source ? toStoredPluginSource(source) : undefined;
 }
 
 // ── Filesystem helpers ──────────────────────────────────────────────────────
@@ -176,11 +215,11 @@ function withTempClone<T>(cloneUrl: string, work: (cloneDir: string) => T): T {
 }
 
 function resolveRemotePluginSource(lockEntry: LockEntry | undefined, dir: string): string {
-  const source = resolveStoredPluginSource(lockEntry, dir);
-  if (!source || isLocalPluginSource(source)) {
+  const source = resolvePluginSource(lockEntry, dir);
+  if (!source || source.kind === 'local') {
     throw new Error(`Unable to determine remote source for plugin at ${dir}`);
   }
-  return source;
+  return source.url;
 }
 
 function pathExistsSync(p: string): boolean {
@@ -928,16 +967,17 @@ export function updatePlugin(name: string): void {
 
   const lock = readLockFile();
   const lockEntry = lock[name];
+  const source = resolvePluginSource(lockEntry, targetDir);
 
-  if (isLocalPluginSource(lockEntry?.source)) {
+  if (source?.kind === 'local') {
     updateLocalPlugin(name, targetDir, lock, lockEntry);
     return;
   }
 
-  if (lockEntry?.monorepo) {
-    const monoDir = path.join(getMonoreposDir(), lockEntry.monorepo.name);
-    const monoName = lockEntry.monorepo.name;
-    const cloneUrl = resolveRemotePluginSource(lockEntry, monoDir);
+  if (source?.kind === 'monorepo') {
+    const monoDir = path.join(getMonoreposDir(), source.repoName);
+    const monoName = source.repoName;
+    const cloneUrl = source.url;
     withTempClone(cloneUrl, (tmpCloneDir) => {
       const manifest = readPluginManifest(tmpCloneDir);
       if (!manifest || !isMonorepo(manifest)) {
@@ -1368,6 +1408,8 @@ export {
   moveDir as _moveDir,
   promoteDir as _promoteDir,
   replaceDir as _replaceDir,
+  resolvePluginSource as _resolvePluginSource,
   resolveStoredPluginSource as _resolveStoredPluginSource,
+  toStoredPluginSource as _toStoredPluginSource,
   toLocalPluginSource as _toLocalPluginSource,
 };
